@@ -1,0 +1,102 @@
+services:
+  react:
+    image: front_ms
+    networks:
+      - mynet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.react.rule=Host(`localhost`)"
+      - "traefik.http.services.react.loadbalancer.server.port=3000"
+      - "traefik.http.routers.react.entrypoints=web"
+
+  user-demo:
+    image: user_ms
+    deploy:
+      replicas: 2
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.user-router.rule=Host(`localhost`) && PathPrefix(`/userapi`)"
+      - "traefik.http.services.user-demo.loadbalancer.server.port=8080"
+    networks:
+      - mynet
+
+  device-demo:
+    image: device_ms
+    deploy:
+      replicas: 2
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.device-router.rule=Host(`localhost`) && PathPrefix(`/deviceapi`)"
+      - "traefik.http.services.device-demo.loadbalancer.server.port=8081"
+    networks:
+      - mynet
+
+  measurement-demo:
+    image: monitoring_ms
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.monitoring-router.rule=Host(`localhost`) && PathPrefix(`/monitoringapi`)"
+      - "traefik.http.services.measurement-demo.loadbalancer.server.port=8082"
+    networks:
+      - mynet
+
+  postgres-user-db:
+    image: postgres
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+    networks:
+      - mynet
+
+
+  postgres_device_db:
+    image: postgres
+    ports:
+      - "5437:5432"
+    environment:
+      POSTGRES_DB: device_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+    networks:
+      - mynet
+
+
+  postgres_measurements_db:
+    image: postgres
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_DB: consumer_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+    networks:
+      - mynet
+
+
+  reverse-proxy:
+    image: traefik:latest
+    command:
+      - --api.insecure=true
+      - --providers.docker=true
+      - --accesslog=true
+      - --accesslog.filepath=/var/log/traefik/access.log
+      - --log.level=DEBUG
+      - --entrypoints.web.address=:80
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - traefik_logs:/var/log/traefik
+    networks:
+      - mynet
+
+networks:
+  mynet:
+    external: true
+
+volumes:
+  traefik_logs:
